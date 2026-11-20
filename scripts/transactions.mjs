@@ -1,0 +1,18 @@
+import {ID,copy,raw,equal} from './model.mjs';import {guard,save,read,publish} from './store.mjs';
+export class Changes{
+ constructor(){this.steps=[];}
+ set(doc,path,value){let step=this.steps.find(s=>s.uuid===doc.uuid);if(!step){step={kind:'update',uuid:doc.uuid,before:{},after:{}};this.steps.push(step);}if(!Object.hasOwn(step.before,path))step.before[path]=raw(doc,path);step.after[path]=value;}
+ restore(doc,path,before){if(before.exists)this.set(doc,path,before.value);else this.remove(doc,path);}
+ remove(doc,path){this.set(doc,path,null);const step=this.steps.find(s=>s.uuid===doc.uuid);step.after[path]={delete:true};}
+}
+const isDelete=v=>v&&typeof v==='object'&&v.delete===true;
+function matches(doc,after){return Object.entries(after).every(([path,value])=>isDelete(value)?!raw(doc,path).exists:equal(raw(doc,path),{exists:true,value}));}
+async function applied(step,id){const doc=step.kind==='create'?game.actors.get(step.id):await fromUuid(step.uuid);if(!doc||doc.flags?.[ID]?.receipt!==id)return false;return step.kind==='create'||matches(doc,step.after);}
+export async function start(_draft,{op,key,intent,steps,after,actorIds=[]}){guard();const book=read();if(book.pending)throw Error('Há uma operação pendente. O Mestre deve conferi-la antes de continuar.');book.pending={id:foundry.utils.randomID(),op,key,intent,steps:copy(steps),after:copy(after),actorIds};await save(book);await run(book);}
+export async function run(book){guard();const p=book.pending;if(!p)throw Error('Sem pendência.');for(const step of p.steps){guard();if(await applied(step,p.id))continue;
+ if(step.kind==='create'){if(game.actors.get(step.id))throw Error('ID de ator ocupado sem recibo. Confira manualmente.');const data=copy(step.data);data.flags??={};data.flags[ID]={...(data.flags[ID]??{}),receipt:p.id};await Actor.create(data,{keepId:true,renderSheet:false,sobreviventeTransaction:p.id});}
+ else{const doc=await fromUuid(step.uuid);if(!doc)throw Error('Documento da operação foi removido.');if(!Object.entries(step.before).every(([path,before])=>equal(raw(doc,path),before)))throw Error('Permissão ou personagem mudou durante a operação. Confira a pendência.');const data={['flags.'+ID+'.receipt']:p.id};for(const [path,value]of Object.entries(step.after)){if(isDelete(value)){const parts=path.split('.'),last=parts.pop();data[[...parts,'-='+last].join('.')]=null;}else data[path]=value;}await doc.update(data,{sobreviventeTransaction:p.id});}
+ if(!await applied(step,p.id))throw Error('Alteração não confirmada. A operação permanece para conferência.');}
+ for(const [key,value]of Object.entries(p.after))book[key]=copy(value);const receipt={status:'done',at:Date.now(),...(p.op==='inspect'?{actorId:p.actorIds[0]}:{})};book.receipts[p.key]=receipt;if(p.intent)book.receipts[p.intent]=copy(receipt);book.pending=null;await save(book);await publish();return {status:'done'};
+}
+export async function recover(book,action){guard();const p=book.pending;if(!p)throw Error('Sem pendência.');if(action==='resume')return run(book);if(action==='cancel'){for(const step of p.steps){const doc=step.kind==='create'?game.actors.get(step.id):await fromUuid(step.uuid);if(step.kind==='create'?!!doc:!doc||doc.flags?.[ID]?.receipt===p.id||!Object.entries(step.before).every(([k,v])=>equal(raw(doc,k),v)))throw Error('Há alterações aplicadas ou externas. Ajuste e confira os documentos antes de encerrar manualmente.');}}else if(action!=='close')throw Error('Ação inválida.');book.receipts[p.key]={status:'manual',at:Date.now()};if(p.intent)book.receipts[p.intent]={status:'manual',at:Date.now()};book.pending=null;await save(book);await publish();return {status:'manual'};}

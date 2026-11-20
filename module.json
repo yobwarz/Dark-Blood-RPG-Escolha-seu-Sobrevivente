@@ -1,0 +1,29 @@
+{
+  "id": "escolha-seu-sobrevivente",
+  "title": "Sangue Escuro: Escolha seu Sobrevivente",
+  "description": "Galeria independente de seleção de personagens, elenco do Mestre, funções de equipe e atribuição de permissões com confirmação.",
+  "version": "0.1.3",
+  "authors": [
+    {
+      "name": "Sangue Escuro — Yob Warz"
+    },
+    {
+      "name": "Mestre Digital / Bruno Calado — referência original",
+      "url": "https://github.com/brunocalado/claim-your-hero"
+    }
+  ],
+  "compatibility": {
+    "minimum": "13",
+    "verified": "13"
+  },
+  "esmodules": [
+    "scripts/main.mjs"
+  ],
+  "styles": [
+    "assets/selecao.css"
+  ],
+  "license": "LICENSE",
+  "url": "https://github.com/yobwarz/Dark-Blood-RPG-Escolha-seu-Sobrevivente",
+  "manifest": "https://raw.githubusercontent.com/yobwarz/Dark-Blood-RPG-Escolha-seu-Sobrevivente/main/module.json",
+  "download": "https://raw.githubusercontent.com/yobwarz/Dark-Blood-RPG-Escolha-seu-Sobrevivente/v0.1.3/dist/escolha-seu-sobrevivente.zip"
+}
